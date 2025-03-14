@@ -2,14 +2,22 @@ import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 
 interface TaskProps {
-  task: { id: string; title: string; description: string; color: string; completed: boolean };
+  task: { id: string; title: string; description: string; priority: string; completed: boolean };
   onToggleComplete: (id: string) => void;
   onDelete: (id: string) => void;
 }
 
+const priorityColors: { [key: string]: string } = {
+  Critical: "#E57373",
+  High: "#FFB74D",
+  Medium: "#FFF176",
+  Low: "#A5D6A7",
+  Optional: "#90CAF9",
+};
+
 const Task: React.FC<TaskProps> = ({ task, onToggleComplete, onDelete }) => {
   return (
-    <View style={[styles.taskContainer, { borderLeftColor: task.color }]}>
+    <View style={[styles.taskContainer, { borderLeftColor: priorityColors[task.priority] }]}>
       <TouchableOpacity onPress={() => onToggleComplete(task.id)} style={styles.taskContent}>
         <Text style={[styles.taskTitle, task.completed && styles.completed]}>{task.title}</Text>
         {task.description ? <Text style={styles.taskDescription}>{task.description}</Text> : null}
