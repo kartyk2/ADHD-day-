@@ -1,131 +1,235 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- */
+import React, { useState } from "react";
+import { 
+  View, FlatList, Text, TextInput, Button, StyleSheet, Modal, TouchableOpacity 
+} from "react-native";
+import Task from "./components/Task";
 
-import React from 'react';
-import type {PropsWithChildren} from 'react';
-import {
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  useColorScheme,
-  View,
-} from 'react-native';
-
-import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
-
-type SectionProps = PropsWithChildren<{
+interface TaskItem {
+  id: string;
   title: string;
-}>;
-
-function Section({children, title}: SectionProps): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
-  return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
-          },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
-    </View>
-  );
+  description: string;
+  color: string; // Represents priority
+  completed: boolean;
 }
 
-function App(): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
+const priorityColors = {
+  Critical: "#F44336", // Red - Urgent & Important
+  High: "#FF9800", // Orange - Urgent but Not Important
+  Medium: "#FFC107", // Yellow - Not Urgent but Important
+  Low: "#4CAF50", // Green - Not Urgent & Not Important
+  Optional: "#2196F3", // Blue - Least priority
+};
 
-  const backgroundStyle = {
-    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
+const TaskList = () => {
+  const [tasks, setTasks] = useState<TaskItem[]>([]);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [taskTitle, setTaskTitle] = useState("");
+  const [taskDescription, setTaskDescription] = useState("");
+  const [taskPriority, setTaskPriority] = useState("Low");
+
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [filterPriority, setFilterPriority] = useState<string | null>(null);
+
+  const addTask = () => {
+    if (taskTitle.trim()) {
+      setTasks([
+        ...tasks,
+        {
+          id: Date.now().toString(),
+          title: taskTitle,
+          description: taskDescription,
+          color: priorityColors[taskPriority],
+          completed: false,
+        }
+      ]);
+      setModalVisible(false);
+      setTaskTitle("");
+      setTaskDescription("");
+      setTaskPriority("Low");
+    }
   };
 
-  /*
-   * To keep the template simple and small we're adding padding to prevent view
-   * from rendering under the System UI.
-   * For bigger apps the reccomendation is to use `react-native-safe-area-context`:
-   * https://github.com/AppAndFlow/react-native-safe-area-context
-   *
-   * You can read more about it here:
-   * https://github.com/react-native-community/discussions-and-proposals/discussions/827
-   */
-  const safePadding = '5%';
+  const toggleComplete = (id: string) => {
+    setTasks(tasks.map(task => 
+      task.id === id ? { ...task, completed: !task.completed } : task
+    ));
+  };
+
+  const deleteTask = (id: string) => {
+    setTasks(tasks.filter(task => task.id !== id));
+  };
+
+  // Sort tasks by priority
+  const priorityOrder = { Critical: 5, High: 4, Medium: 3, Low: 2, Optional: 1 };
+  const sortedTasks = [...tasks].sort((a, b) => 
+    sortOrder === "desc"
+      ? priorityOrder[b.color] - priorityOrder[a.color]
+      : priorityOrder[a.color] - priorityOrder[b.color]
+  );
+
+  // Filter tasks based on priority
+  const filteredTasks = filterPriority
+    ? sortedTasks.filter(task => task.color === priorityColors[filterPriority])
+    : sortedTasks;
 
   return (
-    <View style={backgroundStyle}>
-      <StatusBar
-        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={backgroundStyle.backgroundColor}
+    <View style={styles.container}>
+      <Text style={styles.heading}>To-Do List</Text>
+
+      <View style={styles.controls}>
+        <Button title="Add Task" onPress={() => setModalVisible(true)} />
+        <Button 
+          title={`Sort: ${sortOrder === "desc" ? "High → Low" : "Low → High"}`} 
+          onPress={() => setSortOrder(sortOrder === "desc" ? "asc" : "desc")} 
+        />
+      </View>
+
+      <View style={styles.filterContainer}>
+        {Object.keys(priorityColors).map((level) => (
+          <TouchableOpacity
+            key={level}
+            style={[
+              styles.filterButton, 
+              { backgroundColor: priorityColors[level] },
+              filterPriority === level && styles.selectedFilter
+            ]}
+            onPress={() => setFilterPriority(filterPriority === level ? null : level)}
+          >
+            <Text style={styles.filterText}>{level}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <FlatList
+        data={filteredTasks}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <Task task={item} onToggleComplete={toggleComplete} onDelete={deleteTask} />
+        )}
       />
-      <ScrollView
-        style={backgroundStyle}>
-        <View style={{paddingRight: safePadding}}>
-          <Header/>
+
+      {/* Modal for adding tasks */}
+      <Modal visible={modalVisible} animationType="slide" transparent>
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Add New Task</Text>
+            
+            <TextInput 
+              style={styles.input} 
+              placeholder="Task Name" 
+              value={taskTitle} 
+              onChangeText={setTaskTitle} 
+            />
+            <TextInput 
+              style={styles.input} 
+              placeholder="Task Description" 
+              value={taskDescription} 
+              onChangeText={setTaskDescription} 
+              multiline 
+            />
+
+            <Text style={styles.label}>Priority:</Text>
+            <View style={styles.priorityContainer}>
+              {Object.keys(priorityColors).map((level) => (
+                <TouchableOpacity
+                  key={level}
+                  style={[
+                    styles.priorityButton, 
+                    { backgroundColor: priorityColors[level] },
+                    taskPriority === level && styles.selectedPriority
+                  ]}
+                  onPress={() => setTaskPriority(level)}
+                >
+                  <Text style={styles.priorityText}>{level}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={styles.buttonRow}>
+              <Button title="Cancel" onPress={() => setModalVisible(false)} color="gray" />
+              <Button title="Add Task" onPress={addTask} />
+            </View>
+          </View>
         </View>
-        <View
-          style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
-            paddingHorizontal: safePadding,
-            paddingBottom: safePadding,
-          }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.tsx</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
-        </View>
-      </ScrollView>
+      </Modal>
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
+  container: { flex: 1, padding: 24, backgroundColor: "#F0F2F5" },
+  heading: { fontSize: 26, fontWeight: "bold", color: "#333", marginBottom: 12 },
+
+  controls: { 
+    flexDirection: "row", 
+    justifyContent: "space-between", 
+    marginBottom: 10 
   },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
+  
+  filterContainer: { 
+    flexDirection: "row", 
+    justifyContent: "space-between", 
+    marginBottom: 12 
   },
-  sectionDescription: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
+  filterButton: {
+    flex: 1,
+    padding: 10,
+    marginHorizontal: 5,
+    borderRadius: 8,
+    alignItems: "center",
   },
-  highlight: {
-    fontWeight: '700',
+  selectedFilter: {
+    borderWidth: 2,
+    borderColor: "#000",
+  },
+  filterText: { color: "#fff", fontWeight: "bold" },
+
+  modalContainer: { 
+    flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "rgba(0,0,0,0.5)" 
+  },
+  modalContent: {
+    width: "90%",
+    backgroundColor: "#fff",
+    padding: 20,
+    borderRadius: 12,
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalTitle: { fontSize: 22, fontWeight: "bold", marginBottom: 15 },
+  input: { 
+    width: "100%", 
+    padding: 10, 
+    borderWidth: 1, 
+    borderColor: "#ddd", 
+    borderRadius: 8, 
+    marginBottom: 10 
+  },
+  label: { fontSize: 16, fontWeight: "bold", marginTop: 10 },
+  
+  priorityContainer: { 
+    flexDirection: "row", 
+    justifyContent: "space-between", 
+    marginVertical: 10 
+  },
+  priorityButton: {
+    flex: 1,
+    padding: 10,
+    marginHorizontal: 5,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  selectedPriority: {
+    borderWidth: 2,
+    borderColor: "#000",
+  },
+  priorityText: { color: "#fff", fontWeight: "bold" },
+
+  buttonRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 10,
   },
 });
 
-export default App;
+export default TaskList;
